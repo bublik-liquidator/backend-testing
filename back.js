@@ -1,19 +1,24 @@
 const express = require("express");
 const cors = require("cors");
+const bcrypt = require('bcrypt');
 const app = express();
+require('dotenv').config();
 app.use(cors({ origin: "http://localhost:4200" }));
 const { Pool } = require("pg");
 const pool = new Pool({
-  host: "localhost",
-  port: 5432,
-  user: "postgres",
-  password: "Q156ap",
-  database: "quizSecond",
+  host: process.env.HOST, 
+  port: process.env.PORT,
+  user: process.env.USER,
+  password: process.env.PASSWORD,
+  database: process.env.DATABASE,
 });
+const secret = process.env.SECRET;
+
 const jwt = require("jsonwebtoken");
-const secret = "your_secret";
+
 
 app.use(express.json());
+
 
 app.post("/register", async (req, res) => {
   try {
@@ -22,9 +27,12 @@ app.post("/register", async (req, res) => {
       username,
     ]);
     if (result.rowCount === 0) {
+      // Хешируем пароль перед сохранением
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
       await pool.query(
         "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
-        [username, password, 'user']
+        [username, hashedPassword, 'user']
       );
       res.json("User registered successfully!");
     } else {
@@ -35,27 +43,52 @@ app.post("/register", async (req, res) => {
   }
 });
 
+// app.post("/login", async (req, res) => {
+//   try {
+//     const { username, password } = req.body;
+//     const result = await pool.query(
+//       "SELECT * FROM users WHERE username = $1 AND password = $2",
+//       [username, password]
+//     );
+//     if (result.rowCount === 1) {
+//       const user = result.rows[0];
+//       const isAdmin = user.role === 'admin';
+//       const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
+//       res.json({ token });
+//     } else {
+//       res.status(401).json("Invalid username or password");
+//     }
+//   } catch (err) {
+//     console.error(err.message);
+//   }
+// });
 
 app.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
     const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1 AND password = $2",
-      [username, password]
+      "SELECT * FROM users WHERE username = $1",
+      [username]
     );
     if (result.rowCount === 1) {
       const user = result.rows[0];
-      const isAdmin = user.role === 'admin';
-      const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
-      res.json({ token });
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (isMatch) {
+        // Пароли совпадают, выполняем аутентификацию пользователя
+        const isAdmin = user.role === 'admin';
+        const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
+        res.json({ token });
+      } else {
+        // Пароли не совпадают, отправляем ошибку
+        res.status(401).json("Invalid password");
+      }
     } else {
-      res.status(401).json("Invalid username or password");
+      res.status(401).json("Username not found");
     }
   } catch (err) {
     console.error(err.message);
   }
 });
-
 
 
 const authenticate = (req, res, next) => {
@@ -87,17 +120,14 @@ const authenticate = (req, res, next) => {
 
 app.get("/test", authenticate, async (req, res) => {  //проверка что юзер проходил тест
   try {
-    // Check if the user has already taken the test
     const checkResult = await pool.query(
       "SELECT * FROM answers WHERE user_id = $1",
       [req.user_id]
     );
 
     if (checkResult.rowCount > 0) {
-      // The user has already taken the test
       res.status(403).json("You have already taken the test");
     } else {
-      // The user has not taken the test yet
       const result = await pool.query("SELECT * FROM questions");
       res.json(result.rows);
     }
@@ -164,8 +194,11 @@ app.get("/user-count", authenticate, async (req, res) => {
 
 app.get("/results", authenticate, async (req, res) => {
   try {
-    if (req.username === "admin") {
-      // Only allow the user with the username 'admin' to view the results
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, получаем результаты
       const result = await pool.query(
         `SELECT q.question,
                 COUNT(CASE WHEN a.answer = 1 THEN 1 END) AS option1_count,
@@ -179,33 +212,55 @@ app.get("/results", authenticate, async (req, res) => {
       );
       res.json(result.rows);
     } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
     }
   } catch (err) {
     console.error(err.message);
   }
 });
+
 
 app.post("/change-password", async (req, res) => {
   try {
-    if (req.username === "admin") {
-      // Only allow the user with the username 'admin' to change passwords
-      const { username, newPassword } = req.body;
+    const { username, newPassword } = req.body;
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, обновляем пароль пользователя
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
       await pool.query(
-        `UPDATE users
-         SET password = $1
-         WHERE username = $2;`,
-        [newPassword, username]
+        "UPDATE users SET password = $1 WHERE username = $2",
+        [hashedPassword, username]
       );
-      res.json("Password updated successfully");
+      res.json("Password updated successfully!");
     } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
     }
   } catch (err) {
     console.error(err.message);
   }
 });
-
+app.get("/users", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, получаем список пользователей
+      const result = await pool.query("SELECT * FROM users");
+      res.json(result.rows);
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
 
 
 app.listen(3000, () => {
