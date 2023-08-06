@@ -23,8 +23,8 @@ app.post("/register", async (req, res) => {
     ]);
     if (result.rowCount === 0) {
       await pool.query(
-        "INSERT INTO users (username, password) VALUES ($1, $2)",
-        [username, password]
+        "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
+        [username, password, 'user']
       );
       res.json("User registered successfully!");
     } else {
@@ -35,6 +35,7 @@ app.post("/register", async (req, res) => {
   }
 });
 
+
 app.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -44,7 +45,7 @@ app.post("/login", async (req, res) => {
     );
     if (result.rowCount === 1) {
       const user = result.rows[0];
-      const isAdmin = true
+      const isAdmin = user.role === 'admin';
       const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
       res.json({ token });
     } else {
@@ -204,6 +205,7 @@ app.post("/change-password", async (req, res) => {
     console.error(err.message);
   }
 });
+
 
 
 app.listen(3000, () => {
