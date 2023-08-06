@@ -15,25 +15,6 @@ const secret = "your_secret";
 
 app.use(express.json());
 
-app.post("/login", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1 AND password = $2",
-      [username, password]
-    );
-    if (result.rowCount === 1) {
-      const token = jwt.sign({ user_id: result.rows[0].id }, secret);
-      res.json({ token });
-    } else {
-      res.status(401).json("Invalid username or password");
-    }
-  } catch (err) {
-    console.error(err.message);
-  }
-});
-
-
 app.post("/register", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -53,6 +34,28 @@ app.post("/register", async (req, res) => {
     console.error(err.message);
   }
 });
+
+app.post("/login", async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const result = await pool.query(
+      "SELECT * FROM users WHERE username = $1 AND password = $2",
+      [username, password]
+    );
+    if (result.rowCount === 1) {
+      const user = result.rows[0];
+      const isAdmin = true
+      const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
+      res.json({ token });
+    } else {
+      res.status(401).json("Invalid username or password");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+
 
 const authenticate = (req, res, next) => {
   try {
@@ -81,7 +84,7 @@ const authenticate = (req, res, next) => {
   }
 };
 
-app.get("/test", authenticate, async (req, res) => {
+app.get("/test", authenticate, async (req, res) => {  //проверка что юзер проходил тест
   try {
     // Check if the user has already taken the test
     const checkResult = await pool.query(
@@ -102,19 +105,16 @@ app.get("/test", authenticate, async (req, res) => {
   }
 });
 
-app.post("/test", authenticate, async (req, res) => {
+app.post("/test", authenticate, async (req, res) => { //получение теста из бд
   try {
-    // Check if the user has already taken the test
     const checkResult = await pool.query(
       "SELECT * FROM answers WHERE user_id = $1",
       [req.user_id]
     );
 
     if (checkResult.rowCount > 0) {
-      // The user has already taken the test
       res.status(403).json("You have already taken the test");
     } else {
-      // The user has not taken the test yet
       const { answers } = req.body;
       for (let i = 0; i < answers.length; i++) {
         await pool.query(
