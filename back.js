@@ -1,14 +1,14 @@
 const express = require("express");
 const cors = require("cors");
-const bcrypt = require('bcrypt');
+const bcrypt = require("bcrypt");
 const app = express();
 const rateLimit = require("express-rate-limit");
 
-require('dotenv').config();
+require("dotenv").config();
 app.use(cors({ origin: "http://localhost:4200" }));
 const { Pool } = require("pg");
 const pool = new Pool({
-  host: process.env.HOST, 
+  host: process.env.HOST,
   port: process.env.PORT,
   user: process.env.USER,
   password: process.env.PASSWORD,
@@ -18,13 +18,12 @@ const secret = process.env.SECRET;
 
 const jwt = require("jsonwebtoken");
 
-
 app.use(express.json());
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 login attempts per windowMs
-  message: "Too many login attempts, please try again later"
+  max: 20, // limit each IP to 5 login attempts per windowMs
+  message: "Too many login attempts, please try again later",
 });
 
 app.post("/register", async (req, res) => {
@@ -39,7 +38,7 @@ app.post("/register", async (req, res) => {
       const hashedPassword = await bcrypt.hash(password, saltRounds);
       await pool.query(
         "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
-        [username, hashedPassword, 'user']
+        [username, hashedPassword, "user"]
       );
       res.json("User registered successfully!");
     } else {
@@ -70,19 +69,18 @@ app.post("/register", async (req, res) => {
 //   }
 // });
 
-app.post("/login", loginLimiter,async (req, res) => {
+app.post("/login", loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
-    const result = await pool.query(
-      "SELECT * FROM users WHERE username = $1",
-      [username]
-    );
+    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+      username,
+    ]);
     if (result.rowCount === 1) {
       const user = result.rows[0];
       const isMatch = await bcrypt.compare(password, user.password);
       if (isMatch) {
         // Пароли совпадают, выполняем аутентификацию пользователя
-        const isAdmin = user.role === 'admin';
+        const isAdmin = user.role === "admin";
         const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
         res.json({ token });
       } else {
@@ -96,7 +94,6 @@ app.post("/login", loginLimiter,async (req, res) => {
     console.error(err.message);
   }
 });
-
 
 const authenticate = (req, res, next) => {
   try {
@@ -125,7 +122,8 @@ const authenticate = (req, res, next) => {
   }
 };
 
-app.get("/test", authenticate, async (req, res) => {  //проверка что юзер проходил тест
+app.get("/test", authenticate, async (req, res) => {
+  //проверка что юзер проходил тест
   try {
     const checkResult = await pool.query(
       "SELECT * FROM answers WHERE user_id = $1",
@@ -143,7 +141,8 @@ app.get("/test", authenticate, async (req, res) => {  //проверка что 
   }
 });
 
-app.post("/test", authenticate, async (req, res) => { //получение теста из бд
+app.post("/test", authenticate, async (req, res) => {
+  //получение теста из бд
   try {
     const checkResult = await pool.query(
       "SELECT * FROM answers WHERE user_id = $1",
@@ -155,18 +154,18 @@ app.post("/test", authenticate, async (req, res) => { //получение те�
     } else {
       const { answers } = req.body;
       if (Array.isArray(answers) && answers.length <= MAX_ANSWERS) {
-      for (let i = 0; i < answers.length; i++) {
-        await pool.query(
-          "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
-          [req.user_id, i + 1, answers[i]]
-        );
-      }
+        for (let i = 0; i < answers.length; i++) {
+          await pool.query(
+            "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
+            [req.user_id, i + 1, answers[i]]
+          );
+        }
 
-      res.json("Answers submitted successfully!");
-    }else{
-      res.status(400).json("Invalid request");
+        res.json("Answers submitted successfully!");
+      } else {
+        res.status(400).json("Invalid request");
+      }
     }
-  }
   } catch (err) {
     console.error(err.message);
   }
@@ -184,7 +183,7 @@ app.get("/users-not-completed", authenticate, async (req, res) => {
          FROM users
          WHERE NOT EXISTS (SELECT 1 FROM answers WHERE user_id = users.id);`
       );
-      const usernames = result.rows.map(row => row.username);
+      const usernames = result.rows.map((row) => row.username);
       res.json(usernames);
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
@@ -194,7 +193,6 @@ app.get("/users-not-completed", authenticate, async (req, res) => {
     console.error(err.message);
   }
 });
-
 
 app.get("/user-count", authenticate, async (req, res) => {
   try {
@@ -241,7 +239,6 @@ app.get("/results", authenticate, async (req, res) => {
   }
 });
 
-
 app.post("/change-password", async (req, res) => {
   try {
     const { username, newPassword } = req.body;
@@ -252,10 +249,10 @@ app.post("/change-password", async (req, res) => {
       // Текущий пользователь является администратором, обновляем пароль пользователя
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-      await pool.query(
-        "UPDATE users SET password = $1 WHERE username = $2",
-        [hashedPassword, username]
-      );
+      await pool.query("UPDATE users SET password = $1 WHERE username = $2", [
+        hashedPassword,
+        username,
+      ]);
       res.json("Password updated successfully!");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
@@ -265,6 +262,7 @@ app.post("/change-password", async (req, res) => {
     console.error(err.message);
   }
 });
+
 app.get("/users", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
@@ -283,6 +281,150 @@ app.get("/users", async (req, res) => {
   }
 });
 
+app.post("/create-tables", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, создаем новые таблицы
+      const { tableName, answersName } = req.body;
+      await pool.query(`
+        CREATE TABLE ${tableName} (
+          id SERIAL PRIMARY KEY,
+          question TEXT NOT NULL,
+          option1 TEXT NOT NULL,
+          option2 TEXT NOT NULL,
+          option3 TEXT NOT NULL,
+          option4 TEXT NOT NULL,
+          option5 TEXT NOT NULL
+        );
+        CREATE TABLE ${answersName} (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES users(id),
+          question_id INTEGER NOT NULL REFERENCES ${tableName}(id),
+          answer INTEGER NOT NULL CHECK (answer >= 1 AND answer <= 5)
+        );
+      `);
+      res.json("Tables created successfully!");
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.post("/add-question", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, добавляем новый вопрос в таблицу
+      const {
+        tableName,
+        question,
+        option1,
+        option2,
+        option3,
+        option4,
+        option5,
+      } = req.body;
+      await pool.query(
+        `INSERT INTO ${tableName} (question, option1, option2, option3, option4, option5) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [question, option1, option2, option3, option4, option5]
+      );
+      res.json("Question added successfully!");
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.get("/tables", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, получаем список таблиц
+      const result = await pool.query(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema='public' AND table_type='BASE TABLE'"
+      );
+      res.json(result.rows);
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.post("/delete-table", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, удаляем указанную таблицу
+      const { tableName } = req.body;
+      await pool.query(`DROP TABLE IF EXISTS ${tableName} CASCADE`);
+      res.json("Table deleted successfully!");
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.get("/get-questions", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, получаем список вопросов из указанной таблицы
+      const { tableName } = req.query;
+      const result = await pool.query(`SELECT id, question FROM ${tableName}`);
+      res.json(result.rows);
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.post("/update-question", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, обновляем вопрос и опции в указанной таблице
+      const { tableName, questionId, question, option1, option2, option3, option4, option5 } = req.body;
+      await pool.query(
+        `UPDATE ${tableName} SET question = $1, option1 = $2, option2 = $3, option3 = $4, option4 = $5, option5 = $6 WHERE id = $7`,
+        [question, option1, option2, option3, option4, option5, questionId]
+      );
+      res.json("Question updated successfully!");
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
 
 app.listen(3000, () => {
   console.log("Server started on port 3000");
