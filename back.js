@@ -2,6 +2,8 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require('bcrypt');
 const app = express();
+const rateLimit = require("express-rate-limit");
+
 require('dotenv').config();
 app.use(cors({ origin: "http://localhost:4200" }));
 const { Pool } = require("pg");
@@ -19,6 +21,11 @@ const jwt = require("jsonwebtoken");
 
 app.use(express.json());
 
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit each IP to 5 login attempts per windowMs
+  message: "Too many login attempts, please try again later"
+});
 
 app.post("/register", async (req, res) => {
   try {
@@ -63,7 +70,7 @@ app.post("/register", async (req, res) => {
 //   }
 // });
 
-app.post("/login", async (req, res) => {
+app.post("/login", loginLimiter,async (req, res) => {
   try {
     const { username, password } = req.body;
     const result = await pool.query(
@@ -147,6 +154,7 @@ app.post("/test", authenticate, async (req, res) => { //получение те�
       res.status(403).json("You have already taken the test");
     } else {
       const { answers } = req.body;
+      if (Array.isArray(answers) && answers.length <= MAX_ANSWERS) {
       for (let i = 0; i < answers.length; i++) {
         await pool.query(
           "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
@@ -155,7 +163,10 @@ app.post("/test", authenticate, async (req, res) => { //получение те�
       }
 
       res.json("Answers submitted successfully!");
+    }else{
+      res.status(400).json("Invalid request");
     }
+  }
   } catch (err) {
     console.error(err.message);
   }
