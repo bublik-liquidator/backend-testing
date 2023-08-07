@@ -161,19 +161,29 @@ app.post("/test", authenticate, async (req, res) => { //получение те�
   }
 });
 
-app.get("/users-not-completed", async (req, res) => {
+app.get("/users-not-completed", authenticate, async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT username
-       FROM users
-       WHERE NOT EXISTS (SELECT 1 FROM answers WHERE user_id = users.id);`
-    );
-    const usernames = result.rows.map(row => row.username);
-    res.json(usernames);
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, получаем список пользователей
+      const result = await pool.query(
+        `SELECT username
+         FROM users
+         WHERE NOT EXISTS (SELECT 1 FROM answers WHERE user_id = users.id);`
+      );
+      const usernames = result.rows.map(row => row.username);
+      res.json(usernames);
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
   } catch (err) {
     console.error(err.message);
   }
 });
+
 
 app.get("/user-count", authenticate, async (req, res) => {
   try {
