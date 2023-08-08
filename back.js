@@ -265,9 +265,8 @@ app.post("/change-password", async (req, res) => {
 
 app.get("/users", async (req, res) => {
   try {
-    // Get the table name from the request body
-    const tableName = req.body.tableName;
-
+    // Get the table name from the query parameters
+    const tableName = req.query.tableName;
     // Check if the current user is an administrator
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
