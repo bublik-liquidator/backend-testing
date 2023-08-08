@@ -241,21 +241,21 @@ app.get("/results", authenticate, async (req, res) => {
 
 app.post("/change-password", async (req, res) => {
   try {
-    const { username, newPassword } = req.body;
-    // Проверяем, является ли текущий пользователь администратором
+    const { username, newPassword, tableName } = req.body;
+    // Check if the current user is an administrator
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
-      // Текущий пользователь является администратором, обновляем пароль пользователя
+      // The current user is an administrator, update the user's password
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-      await pool.query("UPDATE users SET password = $1 WHERE username = $2", [
+      await pool.query(`UPDATE ${tableName} SET password = $1 WHERE username = $2`, [
         hashedPassword,
         username,
       ]);
       res.json("Password updated successfully!");
     } else {
-      // Текущий пользователь не является администратором, отправляем ошибку
+      // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
     }
   } catch (err) {
@@ -265,15 +265,18 @@ app.post("/change-password", async (req, res) => {
 
 app.get("/users", async (req, res) => {
   try {
-    // Проверяем, является ли текущий пользователь администратором
+    // Get the table name from the request body
+    const tableName = req.body.tableName;
+
+    // Check if the current user is an administrator
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
-      // Текущий пользователь является администратором, получаем список пользователей
-      const result = await pool.query("SELECT * FROM users");
+      // The current user is an administrator, get the list of users
+      const result = await pool.query(`SELECT * FROM ${tableName}`);
       res.json(result.rows);
     } else {
-      // Текущий пользователь не является администратором, отправляем ошибку
+      // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
     }
   } catch (err) {
@@ -283,12 +286,12 @@ app.get("/users", async (req, res) => {
 
 app.post("/create-tables", async (req, res) => {
   try {
-    // Проверяем, является ли текущий пользователь администратором
+    // Check if the current user is an administrator
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
-      // Текущий пользователь является администратором, создаем новые таблицы
-      const { tableName, answersName } = req.body;
+      // The current user is an administrator, create new tables
+      const { tableName, answersName,users } = req.body;
       await pool.query(`
         CREATE TABLE ${tableName} (
           id SERIAL PRIMARY KEY,
@@ -301,14 +304,20 @@ app.post("/create-tables", async (req, res) => {
         );
         CREATE TABLE ${answersName} (
           id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES users(id),
+          user_id INTEGER NOT NULL REFERENCES ${users}(id),
           question_id INTEGER NOT NULL REFERENCES ${tableName}(id),
           answer INTEGER NOT NULL CHECK (answer >= 1 AND answer <= 5)
+        );
+        CREATE TABLE ${users} (
+          id SERIAL PRIMARY KEY,
+          username TEXT NOT NULL,
+          password TEXT NOT NULL,
+          role TEXT NOT NULL
         );
       `);
       res.json("Tables created successfully!");
     } else {
-      // Текущий пользователь не является администратором, отправляем ошибку
+      // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
     }
   } catch (err) {
