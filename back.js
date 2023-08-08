@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const bcrypt = require("bcrypt");
+var bcrypt = require('bcryptjs');
 const app = express();
 const rateLimit = require("express-rate-limit");
 
@@ -24,6 +24,10 @@ const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 20, // limit each IP to 5 login attempts per windowMs
   message: "Too many login attempts, please try again later",
+});
+
+app.get("/ping", (req, res) => {
+  res.json("Server is up and running!");
 });
 
 app.post("/register", async (req, res) => {
