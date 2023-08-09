@@ -295,6 +295,7 @@ app.post("/create-tables", async (req, res) => {
     if (decodedToken.isAdmin) {
       // The current user is an administrator, create new tables
       const { tableName, answersName,users } = req.body;
+      console.log(tableName+answersName+users)
       await pool.query(`
         CREATE TABLE ${tableName} (
           id SERIAL PRIMARY KEY,
@@ -305,20 +306,21 @@ app.post("/create-tables", async (req, res) => {
           option4 TEXT NOT NULL,
           option5 TEXT NOT NULL
         );
-        CREATE TABLE ${answersName} (
-          id SERIAL PRIMARY KEY,
-          user_id INTEGER NOT NULL REFERENCES ${users}(id),
-          question_id INTEGER NOT NULL REFERENCES ${tableName}(id),
-          answer INTEGER NOT NULL CHECK (answer >= 1 AND answer <= 5)
-        );
         CREATE TABLE ${users} (
           id SERIAL PRIMARY KEY,
           username TEXT NOT NULL,
           password TEXT NOT NULL,
           role TEXT NOT NULL
         );
+        CREATE TABLE ${answersName} (
+          id SERIAL PRIMARY KEY,
+          user_id INTEGER NOT NULL REFERENCES ${users}(id),
+          question_id INTEGER NOT NULL REFERENCES ${tableName}(id),
+          answer INTEGER NOT NULL CHECK (answer >= 1 AND answer <= 5)
+        );
+        
       `);
-      res.json("Таблица "+tableName+" успешно создана");
+      res.json("Таблица "+tableName+" и"+answersName+" и"+users+" успешно созданы");
     } else {
       // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
@@ -363,21 +365,35 @@ app.post("/add-user", async (req, res) => {
     // Extract the user data and table name from the request body
     const { tableName, username, password, role } = req.body;
 
-    // Hash the password before storing it in the database
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert the new user into the specified table
-    await pool.query(
-      `INSERT INTO ${tableName} (username, password, role) VALUES ($1, $2, $3)`,
-      [username, hashedPassword, role]
+    // Check if a user with the specified username already exists in the table
+    const result = await pool.query(
+      `SELECT * FROM ${tableName} WHERE username = $1`,
+      [username]
     );
 
-    // Send a success response
-    res.json("Пользователь" +username+" был добавлен успешно");
+    if (result.rowCount > 0) {
+      // A user with the specified username already exists, send an error response
+      res.status(400).json("Error: Юзер с таким именем уже сущесвует");
+    } else {
+      // No user with the specified username exists, add the new user
+
+      // Hash the password before storing it in the database
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Insert the new user into the specified table
+      await pool.query(
+        `INSERT INTO ${tableName} (username, password, role) VALUES ($1, $2, $3)`,
+        [username, hashedPassword, role]
+      );
+
+      // Send a success response
+      res.json("Пользователь " + username + " был добавлен успешно");
+    }
   } catch (err) {
     console.error(err.message);
   }
 });
+
 
 app.get("/tables", async (req, res) => {
   try {
@@ -409,6 +425,7 @@ app.post("/clear-table", async (req, res) => {
       const { tableName } = req.body;
       await pool.query(`DELETE FROM ${tableName}`);
       res.json("Таблица "+tableName+" успешно очищенна");
+      
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
