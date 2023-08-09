@@ -295,7 +295,6 @@ app.post("/create-tables", async (req, res) => {
     if (decodedToken.isAdmin) {
       // The current user is an administrator, create new tables
       const { tableName, answersName,users } = req.body;
-      console.log(tableName+answersName+users)
       await pool.query(`
         CREATE TABLE ${tableName} (
           id SERIAL PRIMARY KEY,
