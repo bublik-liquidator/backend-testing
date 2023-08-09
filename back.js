@@ -44,7 +44,7 @@ app.post("/register", async (req, res) => {
         "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
         [username, hashedPassword, "user"]
       );
-      res.json("User registered successfully!");
+      res.json("User "+username+" registered successfully!");
     } else {
       res.status(400).json("Username already taken");
     }
@@ -257,7 +257,7 @@ app.post("/change-password", async (req, res) => {
         hashedPassword,
         username,
       ]);
-      res.json("Password updated successfully!");
+      res.json("пароль у юзера "+username+" у спешно изменён");
     } else {
       // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
@@ -318,7 +318,7 @@ app.post("/create-tables", async (req, res) => {
           role TEXT NOT NULL
         );
       `);
-      res.json("Tables created successfully!");
+      res.json("Таблица "+tableName+" успешно создана");
     } else {
       // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
@@ -348,11 +348,32 @@ app.post("/add-question", async (req, res) => {
         `INSERT INTO ${tableName} (question, option1, option2, option3, option4, option5) VALUES ($1, $2, $3, $4, $5, $6)`,
         [question, option1, option2, option3, option4, option5]
       );
-      res.json("Question added successfully!");
+      res.json("Вопрос "+question+" был успешно обновлён");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
     }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
+app.post("/add-user", async (req, res) => {
+  try {
+    // Extract the user data and table name from the request body
+    const { tableName, username, password, role } = req.body;
+
+    // Hash the password before storing it in the database
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Insert the new user into the specified table
+    await pool.query(
+      `INSERT INTO ${tableName} (username, password, role) VALUES ($1, $2, $3)`,
+      [username, hashedPassword, role]
+    );
+
+    // Send a success response
+    res.json("Пользователь" +username+" был добавлен успешно");
   } catch (err) {
     console.error(err.message);
   }
@@ -371,14 +392,14 @@ app.get("/tables", async (req, res) => {
       res.json(result.rows);
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
-      res.status(403).json("Forbidden");
+      res.status(403).json("Запрещенно");
     }
   } catch (err) {
     console.error(err.message);
   }
 });
 
-app.post("/delete-table", async (req, res) => {
+app.post("/clear-table", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
     const token = req.headers.authorization.split(" ")[1];
@@ -386,8 +407,8 @@ app.post("/delete-table", async (req, res) => {
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, удаляем указанную таблицу
       const { tableName } = req.body;
-      await pool.query(`DROP TABLE IF EXISTS ${tableName} CASCADE`);
-      res.json("Table deleted successfully!");
+      await pool.query(`DELETE FROM ${tableName}`);
+      res.json("Таблица "+tableName+" успешно очищенна");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
@@ -416,6 +437,25 @@ app.get("/get-questions", async (req, res) => {
   }
 });
 
+app.get("/get-ansver", async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const token = req.headers.authorization.split(" ")[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      // Текущий пользователь является администратором, получаем список вопросов из указанной таблицы
+      const { tableName } = req.query;
+      const result = await pool.query(`SELECT id, user_id, question_id,answer FROM ${tableName}`);
+      res.json(result.rows);
+    } else {
+      // Текущий пользователь не является администратором, отправляем ошибку
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+  }
+});
+
 app.post("/update-question", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
@@ -428,7 +468,7 @@ app.post("/update-question", async (req, res) => {
         `UPDATE ${tableName} SET question = $1, option1 = $2, option2 = $3, option3 = $4, option4 = $5, option5 = $6 WHERE id = $7`,
         [question, option1, option2, option3, option4, option5, questionId]
       );
-      res.json("Question updated successfully!");
+      res.json("Вопрос "+question+" был успешно обновлён");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
