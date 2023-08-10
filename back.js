@@ -21,7 +21,7 @@ const jwt = require("jsonwebtoken");
 app.use(express.json());
 
 const loginLimiter = rateLimit({
-  windowMs: 1005 * 60 * 1000, // 15 minutes
+  windowMs: 25 * 60 * 1000, // 15 minutes
   max: 20, // limit each IP to 5 login attempts per windowMs
   message: "Too many login attempts, please try again later",
 });
