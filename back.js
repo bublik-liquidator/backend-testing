@@ -21,7 +21,7 @@ const jwt = require("jsonwebtoken");
 app.use(express.json());
 
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 1005 * 60 * 1000, // 15 minutes
   max: 20, // limit each IP to 5 login attempts per windowMs
   message: "Too many login attempts, please try again later",
 });
@@ -157,7 +157,7 @@ app.post("/test", authenticate, async (req, res) => {
       res.status(403).json("You have already taken the test");
     } else {
       const { answers } = req.body;
-      if (Array.isArray(answers) && answers.length <= MAX_ANSWERS) {
+      if (Array.isArray(answers) ) {
         for (let i = 0; i < answers.length; i++) {
           await pool.query(
             "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
