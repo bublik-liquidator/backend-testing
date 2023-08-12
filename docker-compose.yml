@@ -1,6 +1,7 @@
 version: '3.8'  # Версия Docker Compose
 
 services:
+ 
   db:
     image: postgres:14  # Используем официальный образ Docker PostgreSQL версии 14
     environment:  # Настраиваем переменные окружения для базы данных
