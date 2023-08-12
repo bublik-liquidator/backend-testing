@@ -30,14 +30,13 @@ app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
 
-
-
 app.post("/login", loginLimiter, async (req, res) => {
   try {
     const { username, password, table } = req.body;
-    const result = await pool.query(`SELECT * FROM ${table} WHERE username = $1`, [
-      username,
-    ]);
+    const result = await pool.query(
+      `SELECT * FROM ${table} WHERE username = $1`,
+      [username]
+    );
     if (result.rowCount === 1) {
       const user = result.rows[0];
       const isMatch = await bcrypt.compare(password, user.password);
@@ -60,14 +59,13 @@ app.post("/login", loginLimiter, async (req, res) => {
 
 const authenticate = (req, res, next) => {
   try {
-    const { table } = req.body;
+    const { userTable } = req.body;
     const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, secret);
     req.user_id = decoded.user_id;
-
     // Get the username of the user
     pool.query(
-      `SELECT username FROM ${table} WHERE id = $1`,
+      `SELECT username FROM ${userTable} WHERE id = $1`,
       [req.user_id],
       (err, result) => {
         if (err) {
@@ -85,20 +83,52 @@ const authenticate = (req, res, next) => {
     res.status(401).json("Unauthorized");
   }
 };
-
-app.get("/test", authenticate, async (req, res) => {
+async function getDependentTables(pool, userTable) {
+  const result = await pool.query(
+    `
+    SELECT tc.table_name
+    FROM information_schema.table_constraints AS tc
+    JOIN information_schema.constraint_column_usage AS ccu
+      ON tc.constraint_name = ccu.constraint_name
+      AND tc.table_schema = ccu.table_schema
+    WHERE tc.constraint_type = 'FOREIGN KEY' AND ccu.table_name=$1
+  `,
+    [userTable]
+  );
+  return result.rows.map((row) => row.table_name);
+}
+async function getReferencedTables(pool, answersTable) {
+  const result = await pool.query(
+    `
+    SELECT ccu.table_name
+    FROM information_schema.table_constraints AS tc
+    JOIN information_schema.constraint_column_usage AS ccu
+      ON tc.constraint_name = ccu.constraint_name
+      AND tc.table_schema = ccu.table_schema
+    WHERE tc.constraint_type = 'FOREIGN KEY' AND tc.table_name=$1
+  `,
+    [answersTable]
+  );
+  return result.rows.map((row) => row.table_name);
+}
+app.post("/checkTest", authenticate, async (req, res) => {
   //проверка что юзер проходил тест
   try {
-    const { answersTable, questionsTable } = req.body;
+    const { userTable } = req.body;
+    const dependentTables = await getDependentTables(pool, userTable);
+    const referencedTables = await getReferencedTables(
+      pool,
+      dependentTables[0]
+    );
     const checkResult = await pool.query(
-      `SELECT * FROM ${answersTable} WHERE user_id = $1`,
+      `SELECT * FROM ${dependentTables[0]} WHERE user_id = $1`,
       [req.user_id]
     );
 
     if (checkResult.rowCount > 0) {
       res.status(403).json("You have already taken the test");
     } else {
-      const result = await pool.query(`SELECT * FROM ${questionsTable}`);
+      const result = await pool.query(`SELECT * FROM ${referencedTables[1]}`);
       res.json(result.rows);
     }
   } catch (err) {
@@ -109,21 +139,23 @@ app.get("/test", authenticate, async (req, res) => {
 app.post("/test", authenticate, async (req, res) => {
   //получение теста из бд
   try {
-    const { answersTable  } = req.body;
+    const { userTable } = req.body;
+    const dependentTables = await getDependentTables(pool, userTable);
+   
     const checkResult = await pool.query(
-      `SELECT * FROM ${answersTable } WHERE user_id = $1`,
+      `SELECT * FROM ${dependentTables[0]}  WHERE user_id = $1`,
       [req.user_id]
     );
 
     if (checkResult.rowCount > 0) {
       res.status(403).json("You have already taken the test");
     } else {
-      const { answersTable } = req.body;
-      if (Array.isArray(answersTable)) {
-        for (let i = 0; i < answersTable.length; i++) {
+      const { answers } = req.body;
+      if (Array.isArray(answers) ) {
+        for (let i = 0; i < answers.length; i++) {
           await pool.query(
-            `INSERT INTO ${answersTable } (user_id, question_id, answer) VALUES ($1, $2, $3)`,
-            [req.user_id, i + 1, answersTable[i]]
+            "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
+            [req.user_id, i + 1, answers[i]]
           );
         }
 
