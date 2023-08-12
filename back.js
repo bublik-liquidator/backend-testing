@@ -25,7 +25,28 @@ const loginLimiter = rateLimit({
   max: 20, // limit each IP to 5 login attempts per windowMs
   message: "Too many login attempts, please try again later",
 });
-
+app.post("/register", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+        username,
+      ]);
+      if (result.rowCount === 0) {
+        // Хешируем пароль перед сохранением
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+        await pool.query(
+          "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
+          [username, hashedPassword, "user"]
+        );
+        res.json("User "+username+" registered successfully!");
+      } else {
+        res.status(400).json("Username already taken");
+      }
+    } catch (err) {
+      console.error(err.message);
+    }
+  });
 app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
