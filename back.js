@@ -60,13 +60,14 @@ app.post("/login", loginLimiter, async (req, res) => {
 
 const authenticate = (req, res, next) => {
   try {
+    const { table } = req.body;
     const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, secret);
     req.user_id = decoded.user_id;
 
     // Get the username of the user
     pool.query(
-      "SELECT username FROM users WHERE id = $1",
+      `SELECT username FROM ${table} WHERE id = $1`,
       [req.user_id],
       (err, result) => {
         if (err) {
