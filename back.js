@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-var bcrypt = require('bcryptjs');
+var bcrypt = require("bcryptjs");
 const app = express();
 const rateLimit = require("express-rate-limit");
 
@@ -21,7 +21,7 @@ const jwt = require("jsonwebtoken");
 app.use(express.json());
 
 const loginLimiter = rateLimit({
-  windowMs: 25 * 60 * 1000, // 15 minutes
+  windowMs: 20 * 60 * 1000, // 15 minutes
   max: 20, // limit each IP to 5 login attempts per windowMs
   message: "Too many login attempts, please try again later",
 });
@@ -30,53 +30,12 @@ app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
 
-app.post("/register", async (req, res) => {
-  try {
-    const { username, password } = req.body;
-    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
-      username,
-    ]);
-    if (result.rowCount === 0) {
-      // Хешируем пароль перед сохранением
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-      await pool.query(
-        "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
-        [username, hashedPassword, "user"]
-      );
-      res.json("User "+username+" registered successfully!");
-    } else {
-      res.status(400).json("Username already taken");
-    }
-  } catch (err) {
-    console.error(err.message);
-  }
-});
 
-// app.post("/login", async (req, res) => {
-//   try {
-//     const { username, password } = req.body;
-//     const result = await pool.query(
-//       "SELECT * FROM users WHERE username = $1 AND password = $2",
-//       [username, password]
-//     );
-//     if (result.rowCount === 1) {
-//       const user = result.rows[0];
-//       const isAdmin = user.role === 'admin';
-//       const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
-//       res.json({ token });
-//     } else {
-//       res.status(401).json("Invalid username or password");
-//     }
-//   } catch (err) {
-//     console.error(err.message);
-//   }
-// });
 
 app.post("/login", loginLimiter, async (req, res) => {
   try {
-    const { username, password } = req.body;
-    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+    const { username, password, table } = req.body;
+    const result = await pool.query(`SELECT * FROM ${table} WHERE username = $1`, [
       username,
     ]);
     if (result.rowCount === 1) {
@@ -89,7 +48,7 @@ app.post("/login", loginLimiter, async (req, res) => {
         res.json({ token });
       } else {
         // Пароли не совпадают, отправляем ошибку
-        res.status(401).json("Invalid password");
+        res.status(401).json("Пароль не совпал");
       }
     } else {
       res.status(401).json("Username not found");
@@ -129,15 +88,16 @@ const authenticate = (req, res, next) => {
 app.get("/test", authenticate, async (req, res) => {
   //проверка что юзер проходил тест
   try {
+    const { answersTable, questionsTable } = req.body;
     const checkResult = await pool.query(
-      "SELECT * FROM answers WHERE user_id = $1",
+      `SELECT * FROM ${answersTable} WHERE user_id = $1`,
       [req.user_id]
     );
 
     if (checkResult.rowCount > 0) {
       res.status(403).json("You have already taken the test");
     } else {
-      const result = await pool.query("SELECT * FROM questions");
+      const result = await pool.query(`SELECT * FROM ${questionsTable}`);
       res.json(result.rows);
     }
   } catch (err) {
@@ -148,20 +108,21 @@ app.get("/test", authenticate, async (req, res) => {
 app.post("/test", authenticate, async (req, res) => {
   //получение теста из бд
   try {
+    const { answersTable  } = req.body;
     const checkResult = await pool.query(
-      "SELECT * FROM answers WHERE user_id = $1",
+      `SELECT * FROM ${answersTable } WHERE user_id = $1`,
       [req.user_id]
     );
 
     if (checkResult.rowCount > 0) {
       res.status(403).json("You have already taken the test");
     } else {
-      const { answers } = req.body;
-      if (Array.isArray(answers) ) {
-        for (let i = 0; i < answers.length; i++) {
+      const { answersTable } = req.body;
+      if (Array.isArray(answersTable)) {
+        for (let i = 0; i < answersTable.length; i++) {
           await pool.query(
-            "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
-            [req.user_id, i + 1, answers[i]]
+            `INSERT INTO ${answersTable } (user_id, question_id, answer) VALUES ($1, $2, $3)`,
+            [req.user_id, i + 1, answersTable[i]]
           );
         }
 
@@ -178,14 +139,15 @@ app.post("/test", authenticate, async (req, res) => {
 app.get("/users-not-completed", authenticate, async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
+    const { usersTable, answersTable } = req.body;
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем список пользователей
       const result = await pool.query(
         `SELECT username
-         FROM users
-         WHERE NOT EXISTS (SELECT 1 FROM answers WHERE user_id = users.id);`
+         FROM ${usersTable}
+         WHERE NOT EXISTS (SELECT 1 FROM ${answersTable} WHERE user_id = ${usersTable}.id);`
       );
       const usernames = result.rows.map((row) => row.username);
       res.json(usernames);
@@ -200,11 +162,12 @@ app.get("/users-not-completed", authenticate, async (req, res) => {
 
 app.get("/user-count", authenticate, async (req, res) => {
   try {
+    const { answersTable } = req.body;
     if (req.username === "admin") {
       // Only allow the user with the username 'admin' to view the results
       const result = await pool.query(
         `SELECT COUNT(DISTINCT a.user_id) AS user_count
-         FROM answers a;`
+         FROM ${answersTable} a;`
       );
       res.json(result.rows[0].user_count);
     } else {
@@ -218,6 +181,7 @@ app.get("/user-count", authenticate, async (req, res) => {
 app.get("/results", authenticate, async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
+    const { questionsTable, answersTable } = req.body;
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
@@ -229,8 +193,8 @@ app.get("/results", authenticate, async (req, res) => {
                 COUNT(CASE WHEN a.answer = 3 THEN 1 END) AS option3_count,
                 COUNT(CASE WHEN a.answer = 4 THEN 1 END) AS option4_count,
                 COUNT(CASE WHEN a.answer = 5 THEN 1 END) AS option5_count
-         FROM questions q
-         LEFT JOIN answers a ON q.id = a.question_id
+         FROM ${questionsTable} q
+         LEFT JOIN ${answersTable} a ON q.id = a.question_id
          GROUP BY q.id;`
       );
       res.json(result.rows);
@@ -253,11 +217,11 @@ app.post("/change-password", async (req, res) => {
       // The current user is an administrator, update the user's password
       const saltRounds = 10;
       const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-      await pool.query(`UPDATE ${tableName} SET password = $1 WHERE username = $2`, [
-        hashedPassword,
-        username,
-      ]);
-      res.json("пароль у юзера "+username+" у спешно изменён");
+      await pool.query(
+        `UPDATE ${tableName} SET password = $1 WHERE username = $2`,
+        [hashedPassword, username]
+      );
+      res.json("пароль у юзера " + username + " у спешно изменён");
     } else {
       // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
@@ -294,7 +258,7 @@ app.post("/create-tables", async (req, res) => {
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // The current user is an administrator, create new tables
-      const { tableName, answersName,users } = req.body;
+      const { tableName, answersName, users } = req.body;
       await pool.query(`
         CREATE TABLE ${tableName} (
           id SERIAL PRIMARY KEY,
@@ -319,7 +283,15 @@ app.post("/create-tables", async (req, res) => {
         );
         
       `);
-      res.json("Таблица "+tableName+" и"+answersName+" и"+users+" успешно созданы");
+      res.json(
+        "Таблица " +
+          tableName +
+          " и" +
+          answersName +
+          " и" +
+          users +
+          " успешно созданы"
+      );
     } else {
       // The current user is not an administrator, send an error
       res.status(403).json("Forbidden");
@@ -349,7 +321,7 @@ app.post("/add-question", async (req, res) => {
         `INSERT INTO ${tableName} (question, option1, option2, option3, option4, option5) VALUES ($1, $2, $3, $4, $5, $6)`,
         [question, option1, option2, option3, option4, option5]
       );
-      res.json("Вопрос "+question+" был успешно обновлён");
+      res.json("Вопрос " + question + " был успешно обновлён");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
@@ -393,7 +365,6 @@ app.post("/add-user", async (req, res) => {
   }
 });
 
-
 app.get("/tables", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
@@ -423,8 +394,7 @@ app.post("/clear-table", async (req, res) => {
       // Текущий пользователь является администратором, удаляем указанную таблицу
       const { tableName } = req.body;
       await pool.query(`DELETE FROM ${tableName}`);
-      res.json("Таблица "+tableName+" успешно очищенна");
-      
+      res.json("Таблица " + tableName + " успешно очищенна");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
@@ -461,7 +431,9 @@ app.get("/get-ansver", async (req, res) => {
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем список вопросов из указанной таблицы
       const { tableName } = req.query;
-      const result = await pool.query(`SELECT id, user_id, question_id,answer FROM ${tableName}`);
+      const result = await pool.query(
+        `SELECT id, user_id, question_id,answer FROM ${tableName}`
+      );
       res.json(result.rows);
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
@@ -479,12 +451,21 @@ app.post("/update-question", async (req, res) => {
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, обновляем вопрос и опции в указанной таблице
-      const { tableName, questionId, question, option1, option2, option3, option4, option5 } = req.body;
+      const {
+        tableName,
+        questionId,
+        question,
+        option1,
+        option2,
+        option3,
+        option4,
+        option5,
+      } = req.body;
       await pool.query(
         `UPDATE ${tableName} SET question = $1, option1 = $2, option2 = $3, option3 = $4, option4 = $5, option5 = $6 WHERE id = $7`,
         [question, option1, option2, option3, option4, option5, questionId]
       );
-      res.json("Вопрос "+question+" был успешно обновлён");
+      res.json("Вопрос " + question + " был успешно обновлён");
     } else {
       // Текущий пользователь не является администратором, отправляем ошибку
       res.status(403).json("Forbidden");
