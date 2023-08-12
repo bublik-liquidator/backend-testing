@@ -169,18 +169,20 @@ app.post("/test", authenticate, async (req, res) => {
   }
 });
 
-app.get("/users-not-completed", authenticate, async (req, res) => {
+app.post("/users-not-completed", authenticate, async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const { usersTable, answersTable } = req.body;
+    const { userTable } = req.body;
+    const dependentTables = await getDependentTables(pool, userTable);
+    const answersTable= dependentTables[0];
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем список пользователей
       const result = await pool.query(
         `SELECT username
-         FROM ${usersTable}
-         WHERE NOT EXISTS (SELECT 1 FROM ${answersTable} WHERE user_id = ${usersTable}.id);`
+         FROM ${userTable}
+         WHERE NOT EXISTS (SELECT 1 FROM ${answersTable} WHERE user_id = ${userTable}.id);`
       );
       const usernames = result.rows.map((row) => row.username);
       res.json(usernames);
@@ -193,9 +195,11 @@ app.get("/users-not-completed", authenticate, async (req, res) => {
   }
 });
 
-app.get("/user-count", authenticate, async (req, res) => {
+app.post("/user-count", authenticate, async (req, res) => {
   try {
-    const { answersTable } = req.body;
+    const { userTable } = req.body;
+    const dependentTables = await getDependentTables(pool, userTable);
+    const answersTable= dependentTables[0];  
     if (req.username === "admin") {
       // Only allow the user with the username 'admin' to view the results
       const result = await pool.query(
@@ -211,10 +215,16 @@ app.get("/user-count", authenticate, async (req, res) => {
   }
 });
 
-app.get("/results", authenticate, async (req, res) => {
+app.post("/results", authenticate, async (req, res) => {
   try {
-    // Проверяем, является ли текущий пользователь администратором
-    const { questionsTable, answersTable } = req.body;
+    const { userTable } = req.body;
+    const dependentTables = await getDependentTables(pool, userTable);
+    const answersTable= dependentTables[0];
+    const questionsTable = await getReferencedTables(
+      pool,
+      dependentTables[0]
+    );   
+
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
@@ -226,7 +236,7 @@ app.get("/results", authenticate, async (req, res) => {
                 COUNT(CASE WHEN a.answer = 3 THEN 1 END) AS option3_count,
                 COUNT(CASE WHEN a.answer = 4 THEN 1 END) AS option4_count,
                 COUNT(CASE WHEN a.answer = 5 THEN 1 END) AS option5_count
-         FROM ${questionsTable} q
+         FROM ${questionsTable[1]} q
          LEFT JOIN ${answersTable} a ON q.id = a.question_id
          GROUP BY q.id;`
       );
