@@ -1,26 +1,34 @@
-version: '3.8'  # Версия Docker Compose
+version: '3.8' # Версия Docker Compose
 
 services:
- 
+
   db:
-    image: postgres:14  # Используем официальный образ Docker PostgreSQL версии 14
-    environment:  # Настраиваем переменные окружения для базы данных
-      POSTGRES_USER: postgres  # Имя пользователя для подключения к базе данных
-      POSTGRES_PASSWORD: Q156ap  # Пароль для подключения к базе данных
-      POSTGRES_DB: quizSecond  # Имя базы данных PostgreSQL
-    volumes:  # Монтируем том для хранения данных PostgreSQL
-      - ./data:/var/lib/postgresql/data
+    image: postgres:14 # Используем официальный образ Docker PostgreSQL версии 14
+    environment:
+      # Настраиваем переменные окружения для базы данных
+      POSTGRES_USER: postgres # Имя пользователя для подключения к базе данных
+      POSTGRES_PASSWORD: Q156ap # Пароль для подключения к базе данных
+      POSTGRES_DB: quizSecond # Имя базы данных PostgreSQL
+      SECRET: Dfedghvd_dkl4sd54g854Egvffgdg
+      ALLOWED_ORIGIN: http://localhost:4200
+
+    volumes:
+      # Монтируем том для хранения данных PostgreSQL
       - ./sql_init_scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
 
-  app:  # Сервис Node.js, TypeScript и Express
-    build: .  # Собираем образ из текущего каталога (который содержит Dockerfile)
+  test_app_back:
+    container_name: test_app_back
+    build: . # Собираем образ из текущего каталога (который содержит Dockerfile)
     ports:
-      - "3000:3000"  # Открываем порт 3000 на хосте
-    
+      - "3000:3000" # Открываем порт 3000 на хосте
+
     environment:
-       # Настраиваем переменную окружения для подключения к базе данных PostgreSQL
+      # Настраиваем переменную окружения для подключения к базе данных PostgreSQL
       POSTGRESQL_PORT: 5432
-      HOST: db
+      POSTGRESQL_HOST: db
       POSTGRESQL_USER: postgres
       POSTGRESQL_PASSWORD: Q156ap
       POSTGRESQL_DB_NAME: quizSecond
+      SECRET: Dfedghvd_dkl4sd54g854Egvffgdg
+      ALLOWED_ORIGIN: http://localhost:4200
+

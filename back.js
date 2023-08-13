@@ -5,14 +5,14 @@ const app = express();
 const rateLimit = require("express-rate-limit");
 
 require("dotenv").config();
-app.use(cors({ origin: "http://localhost:4200" }));
+app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
 const { Pool } = require("pg");
 const pool = new Pool({
-  host: process.env.HOST,
-  port: process.env.PORT,
-  user: process.env.USER,
-  password: process.env.PASSWORD,
-  database: process.env.DATABASE,
+  host: process.env.POSTGRESQL_HOST,
+  port: process.env.POSTGRESQL_PORT,
+  user: process.env.POSTGRESQL_USER,
+  password: process.env.POSTGRESQL_PASSWORD,
+  database: process.env.POSTGRESQL_DATABASE,
 });
 const secret = process.env.SECRET;
 
