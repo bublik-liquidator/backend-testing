@@ -164,10 +164,10 @@ app.post("/test", authenticate, async (req, res) => {
     const dependentTables = await getDependentTables(pool, userTable);
    
     const checkResult = await pool.query(
-      `SELECT * FROM ${dependentTables[0]}  WHERE user_id = $1`,
+      `SELECT * FROM ${dependentTables[0]} WHERE user_id = $1`,
       [req.user_id]
     );
-
+      console.log(dependentTables[0])
     if (checkResult.rowCount > 0) {
       res.status(403).json("You have already taken the test");
     } else {
@@ -175,8 +175,8 @@ app.post("/test", authenticate, async (req, res) => {
       if (Array.isArray(answers) ) {
         for (let i = 0; i < answers.length; i++) {
           await pool.query(
-            "INSERT INTO answers (user_id, question_id, answer) VALUES ($1, $2, $3)",
-            [req.user_id, i + 1, answers[i]]
+            `INSERT INTO ${dependentTables[0]} (user_id, question_id, answer) VALUES ($1, $2, $3)`,
+            [req.user_id, i + 1, answers[i]] 
           );
         }
 
@@ -186,7 +186,7 @@ app.post("/test", authenticate, async (req, res) => {
       }
     }
   } catch (err) {
-    console.error(err.message);
+    console.error(err);
   }
 });
 
@@ -350,9 +350,9 @@ app.post("/create-tables", async (req, res) => {
       res.json(
         "Таблица " +
           tableName +
-          " и" +
+          " и " +
           answersName +
-          " и" +
+          " и "  +
           users +
           " успешно созданы"
       );
@@ -361,7 +361,7 @@ app.post("/create-tables", async (req, res) => {
       res.status(403).json("Forbidden");
     }
   } catch (err) {
-    console.error(err.message);
+    res.status(409).send("Такие таблицы уже есть");
   }
 });
 
