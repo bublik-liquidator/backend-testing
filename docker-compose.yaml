@@ -4,6 +4,7 @@ services:
 
   db:
     image: postgres:14 # Используем официальный образ Docker PostgreSQL версии 14
+    container_name: test_app_db
     environment:
       # Настраиваем переменные окружения для базы данных
       POSTGRES_USER: postgres # Имя пользователя для подключения к базе данных
@@ -31,4 +32,18 @@ services:
       POSTGRESQL_DB_NAME: quizSecond
       SECRET: Dfedghvd_dkl4sd54g854Egvffgdg
       ALLOWED_ORIGIN: http://localhost:4200
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin4_container
+    restart: always
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@kzkvv.me
+      PGADMIN_DEFAULT_PASSWORD: 7b8lfTamDK3i15Gl8p2wkWs
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+volumes:
+  pgadmin-data:
 

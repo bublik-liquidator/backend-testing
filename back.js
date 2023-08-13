@@ -3,13 +3,14 @@ const cors = require("cors");
 var bcrypt = require("bcryptjs");
 const app = express();
 const rateLimit = require("express-rate-limit");
+const format = require('pg-format');
 
 require("dotenv").config();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
 const { Pool } = require("pg");
 const pool = new Pool({
-  host: process.env.POSTGRESQL_HOST, 
-  port: process.env.POSTGRESQL_PORT, 
+  host: process.env.POSTGRESQL_HOST,
+  port: process.env.POSTGRESQL_PORT,
   user: process.env.POSTGRESQL_USER,
   password: process.env.POSTGRESQL_PASSWORD,
   database: process.env.POSTGRESQL_DATABASE,
@@ -26,38 +27,44 @@ const loginLimiter = rateLimit({
   message: "Too many login attempts, please try again later",
 });
 app.post("/register", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      const result = await pool.query("SELECT * FROM users WHERE username = $1", [
-        username,
-      ]);
-      if (result.rowCount === 0) {
-        // Хешируем пароль перед сохранением
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-        await pool.query(
-          "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
-          [username, hashedPassword, "user"]
-        );
-        res.json("User "+username+" registered successfully!");
-      } else {
-        res.status(400).json("Username already taken");
-      }
-    } catch (err) {
-      console.error(err.message);
+  try {
+    const { username, password } = req.body;
+    const result = await pool.query("SELECT * FROM users WHERE username = $1", [
+      username,
+    ]);
+    if (result.rowCount === 0) {
+      // Хешируем пароль перед сохранением
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      await pool.query(
+        "INSERT INTO users (username, password, role) VALUES ($1, $2, $3)",
+        [username, hashedPassword, "user"]
+      );
+      res.json("User " + username + " registered successfully!");
+    } else {
+      res.status(400).json("Username already taken");
     }
-  });
+  } catch (err) {
+    console.error(err.message);
+  }
+});
 app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
 
 app.post("/login", loginLimiter, async (req, res) => {
+
   try {
+    
     const { username, password, table } = req.body;
+    const queryy = format(`SELECT * FROM %I WHERE username = %L`, table, username);
+    console.log(queryy+"queryy");
     const result = await pool.query(
-      `SELECT * FROM ${table} WHERE username = $1`,
-      [username]
+      `SELECT * FROM table=$1 WHERE username=$2`,
+      [table,username]      
     );
+  
+    console.log(result+"result")
     if (result.rowCount === 1) {
       const user = result.rows[0];
       const isMatch = await bcrypt.compare(password, user.password);
@@ -162,21 +169,21 @@ app.post("/test", authenticate, async (req, res) => {
   try {
     const { userTable } = req.body;
     const dependentTables = await getDependentTables(pool, userTable);
-   
+
     const checkResult = await pool.query(
       `SELECT * FROM ${dependentTables[0]} WHERE user_id = $1`,
       [req.user_id]
     );
-      console.log(dependentTables[0])
+    console.log(dependentTables[0]);
     if (checkResult.rowCount > 0) {
       res.status(403).json("You have already taken the test");
     } else {
       const { answers } = req.body;
-      if (Array.isArray(answers) ) {
+      if (Array.isArray(answers)) {
         for (let i = 0; i < answers.length; i++) {
           await pool.query(
             `INSERT INTO ${dependentTables[0]} (user_id, question_id, answer) VALUES ($1, $2, $3)`,
-            [req.user_id, i + 1, answers[i]] 
+            [req.user_id, i + 1, answers[i]]
           );
         }
 
@@ -195,7 +202,7 @@ app.post("/users-not-completed", authenticate, async (req, res) => {
     // Проверяем, является ли текущий пользователь администратором
     const { userTable } = req.body;
     const dependentTables = await getDependentTables(pool, userTable);
-    const answersTable= dependentTables[0];
+    const answersTable = dependentTables[0];
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
@@ -220,7 +227,7 @@ app.post("/user-count", authenticate, async (req, res) => {
   try {
     const { userTable } = req.body;
     const dependentTables = await getDependentTables(pool, userTable);
-    const answersTable= dependentTables[0];  
+    const answersTable = dependentTables[0];
     if (req.username === "admin") {
       // Only allow the user with the username 'admin' to view the results
       const result = await pool.query(
@@ -240,11 +247,8 @@ app.post("/results", authenticate, async (req, res) => {
   try {
     const { userTable } = req.body;
     const dependentTables = await getDependentTables(pool, userTable);
-    const answersTable= dependentTables[0];
-    const questionsTable = await getReferencedTables(
-      pool,
-      dependentTables[0]
-    );   
+    const answersTable = dependentTables[0];
+    const questionsTable = await getReferencedTables(pool, dependentTables[0]);
 
     const token = req.headers.authorization.split(" ")[1];
     const decodedToken = jwt.verify(token, secret);
@@ -352,7 +356,7 @@ app.post("/create-tables", async (req, res) => {
           tableName +
           " и " +
           answersName +
-          " и "  +
+          " и " +
           users +
           " успешно созданы"
       );
@@ -540,7 +544,6 @@ app.post("/update-question", async (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log("Server started on port"+process.env.PORT);
-  console.log("Server started on host"+process.env.HOST);
-
+  console.log("Server started on port" + process.env.POSTGRESQL_PORT);
+  console.log("Server started on host" + process.env.POSTGRESQL_HOST);
 });
