@@ -3,7 +3,7 @@ const cors = require("cors");
 var bcrypt = require("bcryptjs");
 const app = express();
 const rateLimit = require("express-rate-limit");
-const format = require('pg-format');
+const format = require("pg-format");
 
 require("dotenv").config();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
@@ -53,18 +53,15 @@ app.get("/ping", (req, res) => {
 });
 
 app.post("/login", loginLimiter, async (req, res) => {
-
   try {
-    
     const { username, password, table } = req.body;
-    const queryy = format(`SELECT * FROM %I WHERE username = %L`, table, username);
-    console.log(queryy+"queryy");
+    if (typeof table !== 'string' || table.length > 20 || !/^[a-zA-Z0-9_]+$/.test(table)) {
+      throw new Error('Invalid table name');
+    }
     const result = await pool.query(
-      `SELECT * FROM table=$1 WHERE username=$2`,
-      [table,username]      
+      `SELECT * FROM ${table} WHERE username=$1`,
+      [username]
     );
-  
-    console.log(result+"result")
     if (result.rowCount === 1) {
       const user = result.rows[0];
       const isMatch = await bcrypt.compare(password, user.password);
@@ -88,6 +85,11 @@ app.post("/login", loginLimiter, async (req, res) => {
 const authenticate = (req, res, next) => {
   try {
     const { userTable } = req.body;
+    if (
+      typeof userTable !== "string" ||  userTable.length > 20 ||   !/^[a-zA-Z0-9_]+$/.test(userTable)
+    ) {
+      throw new Error("Invalid table name");
+    } 
     const token = req.headers.authorization.split(" ")[1];
     const decoded = jwt.verify(token, secret);
     req.user_id = decoded.user_id;
