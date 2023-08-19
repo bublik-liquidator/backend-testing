@@ -36,6 +36,7 @@ app.get("/ping", (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { name, password } = req.body;
+    console.log("namenamenamename "+name)
     const result = await pool.query(`SELECT * FROM users WHERE name=$1`, [
       name,
     ]);
@@ -49,6 +50,7 @@ app.post("/login", async (req, res) => {
         const token = jwt.sign({ user_id: user.id, isAdmin }, secret, {
           expiresIn: EXPIRES_IN,
         });
+        console.log("TOCENNN"+token)
         res.json({ token });
       } else {
         // Пароли не совпадают, отправляем ошибку
@@ -67,7 +69,9 @@ app.post("/login", async (req, res) => {
 const authenticate = async (req, res, next) => {
   try {
     //// console.log('Request headers:', req.headers);  Отслеживаем заголовки запроса
-    const token = req.query.token;
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+        console.log("tokentokentokentokentokentokentoken     "+token)
     const decoded = jwt.verify(token, secret);
     req.user_id = decoded.user_id;
 
@@ -189,7 +193,8 @@ app.post("/test", authenticate, async (req, res) => {
 app.post("/users-not-completed", authenticate, async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем список пользователей
@@ -212,7 +217,8 @@ app.post("/users-not-completed", authenticate, async (req, res) => {
 
 app.post("/user-count", authenticate, async (req, res) => {
   try {
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Only allow the user with the name 'admin' to view the results
@@ -232,7 +238,8 @@ app.post("/user-count", authenticate, async (req, res) => {
 
 app.post("/results", authenticate, async (req, res) => {
   try {
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем результаты
@@ -263,7 +270,8 @@ app.post("/results", authenticate, async (req, res) => {
 
 app.post("/users", async (req, res) => {
   try {
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       const result = await pool.query(`SELECT * FROM users`);
@@ -282,7 +290,8 @@ app.post("/change-password", async (req, res) => {
     const { name, newPassword, group_id } = req.body;
     // Check if the current user is an administrator
     console.log(name + newPassword + " DDDDDDD ");
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Check if the user exists
@@ -313,7 +322,8 @@ app.post("/change-password", async (req, res) => {
 app.post("/add-question", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, добавляем новый вопрос в таблицу
@@ -365,7 +375,8 @@ app.post("/get-questions", async (req, res) => {
 app.post("/update-question", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, обновляем вопрос и опции в таблице questions
@@ -453,7 +464,8 @@ app.post("/add-user", async (req, res) => {
 app.post("/get-ansver", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем список ответов из таблицы answers
@@ -474,7 +486,8 @@ app.post("/get-ansver", async (req, res) => {
 app.post("/clear-table", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const token = req.query.token;
+const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, удаляем указанную таблицу
