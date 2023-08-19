@@ -10,11 +10,12 @@ app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
 app.use((err, req, res, next) => {
   if (err instanceof pg.Error) {
     console.error(err.message);
-    res.status(500).json({ error: 'Ошибка базы данных' });
+    res.status(500).json({ error: `Ошибка базы данных: ${err.message}` });
   } else {
     next(err);
   }
 });
+
 const { Pool } = require("pg");
 const pool = new Pool({
   host: process.env.POSTGRESQL_HOST,
@@ -522,6 +523,11 @@ app.post("/clear-table", async (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log("Server started on port" + process.env.POSTGRESQL_PORT);
-  console.log("Server started on host" + process.env.POSTGRESQL_HOST);
+  console.log("Server started on POSTGRESQL_PORT" + process.env.POSTGRESQL_PORT);
+  console.log("Server started on POSTGRESQL_HOST" + process.env.POSTGRESQL_HOST);
+  console.log("Server started on POSTGRESQL_DATABASE" + process.env.POSTGRESQL_DATABASE); 
+  console.log("Server started on POSTGRESQL_PASSWORD" + process.env.POSTGRESQL_PASSWORD);
+  console.log("Server started on POSTGRESQL_USER" + process.env.POSTGRESQL_USER);
+
+
 });
