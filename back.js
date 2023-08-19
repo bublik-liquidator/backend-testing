@@ -40,15 +40,6 @@ app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
 
-app.get("/userss", async (req, res) => {
-  try {
-    const result = await pool.query(`SELECT * FROM users`);
-    res.json(result.rows);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json([]);
-  }
-});
 app.post("/login", loginLimiter, async (req, res) => {
   try {
     const { name, password } = req.body;
@@ -523,11 +514,11 @@ app.post("/clear-table", async (req, res) => {
 });
 
 app.listen(3000, () => {
-  console.log("Server started on POSTGRESQL_PORT" + process.env.POSTGRESQL_PORT);
-  console.log("Server started on POSTGRESQL_HOST" + process.env.POSTGRESQL_HOST);
-  console.log("Server started on POSTGRESQL_DATABASE" + process.env.POSTGRESQL_DATABASE); 
-  console.log("Server started on POSTGRESQL_PASSWORD" + process.env.POSTGRESQL_PASSWORD);
-  console.log("Server started on POSTGRESQL_USER" + process.env.POSTGRESQL_USER);
+  console.log("Server started on POSTGRESQL_PORT  " + process.env.POSTGRESQL_PORT);
+  console.log("Server started on POSTGRESQL_HOST  " + process.env.POSTGRESQL_HOST);
+  console.log("Server started on POSTGRESQL_DATABASE  " + process.env.POSTGRESQL_DATABASE); 
+  console.log("Server started on POSTGRESQL_PASSWORD  " + process.env.POSTGRESQL_PASSWORD);
+  console.log("Server started on POSTGRESQL_USER  " + process.env.POSTGRESQL_USER);
 
 
 });
