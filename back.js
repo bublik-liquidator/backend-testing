@@ -2,8 +2,7 @@ const express = require("express");
 const cors = require("cors");
 var bcrypt = require("bcryptjs");
 const app = express();
-const rateLimit = require("express-rate-limit");
-const format = require("pg-format");
+const EXPIRES_IN = "24h";
 
 require("dotenv").config();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
@@ -30,8 +29,6 @@ const jwt = require("jsonwebtoken");
 
 app.use(express.json());
 
-
-
 app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
@@ -49,7 +46,9 @@ app.post("/login", async (req, res) => {
       if (isMatch) {
         // Пароли совпадают, выполняем аутентификацию пользователя
         const isAdmin = user.role === "admin";
-        const token = jwt.sign({ user_id: user.id, isAdmin }, secret);
+        const token = jwt.sign({ user_id: user.id, isAdmin }, secret, {
+          expiresIn: EXPIRES_IN,
+        });
         res.json({ token });
       } else {
         // Пароли не совпадают, отправляем ошибку
@@ -58,7 +57,6 @@ app.post("/login", async (req, res) => {
     } else {
       res.status(403).json("Такого юзера не существует");
       return "Такого юзера не существует";
-
     }
   } catch (err) {
     console.error(err.message + " ошибка в login функции");
@@ -98,8 +96,7 @@ const authenticate = async (req, res, next) => {
       res.status(400).json("Missing Authorization header");
     } else {
       res.status(500).json("Internal server error");
-          return err;
-
+      return err;
     }
   }
 };
@@ -139,7 +136,6 @@ app.post("/checkTest", authenticate, async (req, res) => {
   } catch (err) {
     console.error(err.message + "checkTest");
     res.status(401).json("Error");
-
   }
 });
 
@@ -187,7 +183,6 @@ app.post("/test", authenticate, async (req, res) => {
   } catch (err) {
     console.error(err);
     return err;
-
   }
 });
 
@@ -212,7 +207,6 @@ app.post("/users-not-completed", authenticate, async (req, res) => {
   } catch (err) {
     console.error(err.message + "users-not-complete");
     res.status(401).json("Error");
-
   }
 });
 
@@ -233,7 +227,6 @@ app.post("/user-count", authenticate, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -265,10 +258,8 @@ app.post("/results", authenticate, async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
-
 
 app.post("/users", async (req, res) => {
   try {
@@ -283,7 +274,6 @@ app.post("/users", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -303,11 +293,10 @@ app.post("/change-password", async (req, res) => {
         // User exists, update their password and group_id
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-        await pool.query(`UPDATE users SET password = $1, group_id = $2 WHERE name = $3`, [
-          hashedPassword,
-          group_id,
-          name,
-        ]);
+        await pool.query(
+          `UPDATE users SET password = $1, group_id = $2 WHERE name = $3`,
+          [hashedPassword, group_id, name]
+        );
         res.json("пароль у юзера " + name + " у спешно изменён");
       } else {
         res.status(404).json("Такого юзера нет");
@@ -318,10 +307,8 @@ app.post("/change-password", async (req, res) => {
   } catch (err) {
     console.error(err.message + " in change-password");
     res.status(401).json("Error");
-
   }
 });
-
 
 app.post("/add-question", async (req, res) => {
   try {
@@ -351,7 +338,6 @@ app.post("/add-question", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -373,7 +359,6 @@ app.post("/get-questions", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -415,7 +400,6 @@ app.post("/update-question", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -463,7 +447,6 @@ app.post("/add-user", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -485,7 +468,6 @@ app.post("/get-ansver", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
@@ -505,16 +487,23 @@ app.post("/clear-table", async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(401).json("Error");
-
   }
 });
 
 app.listen(3000, () => {
-  console.log("Server started on POSTGRESQL_PORT  " + process.env.POSTGRESQL_PORT);
-  console.log("Server started on POSTGRESQL_HOST  " + process.env.POSTGRESQL_HOST);
-  console.log("Server started on POSTGRESQL_DATABASE  " + process.env.POSTGRESQL_DATABASE); 
-  console.log("Server started on POSTGRESQL_PASSWORD  " + process.env.POSTGRESQL_PASSWORD);
-  console.log("Server started on POSTGRESQL_USER  " + process.env.POSTGRESQL_USER);
-
-
+  console.log(
+    "Server started on POSTGRESQL_PORT  " + process.env.POSTGRESQL_PORT
+  );
+  console.log(
+    "Server started on POSTGRESQL_HOST  " + process.env.POSTGRESQL_HOST
+  );
+  console.log(
+    "Server started on POSTGRESQL_DATABASE  " + process.env.POSTGRESQL_DATABASE
+  );
+  console.log(
+    "Server started on POSTGRESQL_PASSWORD  " + process.env.POSTGRESQL_PASSWORD
+  );
+  console.log(
+    "Server started on POSTGRESQL_USER  " + process.env.POSTGRESQL_USER
+  );
 });
