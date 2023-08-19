@@ -30,6 +30,16 @@ const loginLimiter = rateLimit({
 app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
+
+app.get("/userss", async (req, res) => {
+  try {
+    const result = await pool.query(`SELECT * FROM users`);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json([]);
+  }
+});
 app.post("/login", loginLimiter, async (req, res) => {
   try {
     const { name, password } = req.body;
@@ -56,7 +66,7 @@ app.post("/login", loginLimiter, async (req, res) => {
     }
   } catch (err) {
     console.error(err.message + " ошибка в login функции");
-    return err.message;
+    res.status(401).json("Error");
   }
 });
 
@@ -132,7 +142,7 @@ app.post("/checkTest", authenticate, async (req, res) => {
     }
   } catch (err) {
     console.error(err.message + "checkTest");
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -205,7 +215,7 @@ app.post("/users-not-completed", authenticate, async (req, res) => {
     }
   } catch (err) {
     console.error(err.message + "users-not-complete");
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -226,7 +236,7 @@ app.post("/user-count", authenticate, async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -258,7 +268,7 @@ app.post("/results", authenticate, async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -276,7 +286,7 @@ app.post("/users", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -311,7 +321,7 @@ app.post("/change-password", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message + " in change-password");
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -344,7 +354,7 @@ app.post("/add-question", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -366,7 +376,7 @@ app.post("/get-questions", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -408,7 +418,7 @@ app.post("/update-question", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -456,7 +466,7 @@ app.post("/add-user", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -478,7 +488,7 @@ app.post("/get-ansver", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
@@ -498,7 +508,7 @@ app.post("/clear-table", async (req, res) => {
     }
   } catch (err) {
     console.error(err.message);
-    return err.message;
+    res.status(401).json("Error");
 
   }
 });
