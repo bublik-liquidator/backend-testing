@@ -235,7 +235,8 @@ app.post("/results", authenticate, async (req, res) => {
          FROM questions q
          JOIN groups g ON q.group_id = g.id
          LEFT JOIN answers a ON q.id = a.question_id
-         GROUP BY g.name, q.id`
+         GROUP BY g.id, g.name, q.id
+         ORDER BY g.id`
       );
       res.json(result.rows);
     } else {
@@ -246,6 +247,7 @@ app.post("/results", authenticate, async (req, res) => {
     console.error(err.message);
   }
 });
+
 
 app.post("/users", async (req, res) => {
   try {
@@ -264,7 +266,7 @@ app.post("/users", async (req, res) => {
 
 app.post("/change-password", async (req, res) => {
   try {
-    const { name, newPassword } = req.body;
+    const { name, newPassword, group_id } = req.body;
     // Check if the current user is an administrator
     console.log(name + newPassword + " DDDDDDD ");
     const token = req.query.token;
@@ -275,11 +277,12 @@ app.post("/change-password", async (req, res) => {
         name,
       ]);
       if (user.rowCount > 0) {
-        // User exists, update their password
+        // User exists, update their password and group_id
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
-        await pool.query(`UPDATE users SET password = $1 WHERE name = $2`, [
+        await pool.query(`UPDATE users SET password = $1, group_id = $2 WHERE name = $3`, [
           hashedPassword,
+          group_id,
           name,
         ]);
         res.json("пароль у юзера " + name + " у спешно изменён");
@@ -293,6 +296,7 @@ app.post("/change-password", async (req, res) => {
     console.error(err.message + " in change-password");
   }
 });
+
 
 app.post("/add-question", async (req, res) => {
   try {
