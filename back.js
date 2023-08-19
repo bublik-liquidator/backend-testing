@@ -30,17 +30,13 @@ const jwt = require("jsonwebtoken");
 
 app.use(express.json());
 
-const loginLimiter = rateLimit({
-  windowMs: 20 * 60 * 1000, // 15 minutes
-  max: 20, // limit each IP to 5 login attempts per windowMs
-  message: "Too many login attempts, please try again later",
-});
+
 
 app.get("/ping", (req, res) => {
   res.json("Server is up and running!");
 });
 
-app.post("/login", loginLimiter, async (req, res) => {
+app.post("/login", async (req, res) => {
   try {
     const { name, password } = req.body;
     const result = await pool.query(`SELECT * FROM users WHERE name=$1`, [
