@@ -6,7 +6,7 @@ CREATE TABLE groups (
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
-    password TEXT NOT NULL
+    password TEXT NOT NULL,
     group_id INTEGER NOT NULL REFERENCES groups(id),
     role TEXT NOT NULL
 );
@@ -31,10 +31,11 @@ CREATE TABLE answers (
     answer INTEGER NOT NULL CHECK (answer >= 1 AND answer <= 5)
 );
 
-INSERT INTO groups (name) VALUES
-('Group 1'),
-('Group 2'),
-('Group 3');
+INSERT INTO groups (id, name) VALUES
+(1, 'Group 1'),
+(2, 'Group 2'),
+(3, 'Group 3');
+
 
 
 INSERT INTO questions (question, option1, option2, option3, option4, option5, group_id)
@@ -63,7 +64,8 @@ VALUES ('Занятия преподавателя информативны, н�
 
 
 
-INSERT INTO users (username, password, role, group_id) VALUES ('user1', '$2b$10$YHqVeF8y/80staBMCclKlevZ0TyudE.7Ibi1DkwElaSl6VTiiqZti', 'user',1),
+INSERT INTO users (name, password, role, group_id) VALUES
+ ('user1', '$2b$10$YHqVeF8y/80staBMCclKlevZ0TyudE.7Ibi1DkwElaSl6VTiiqZti', 'user',1),
  ('user2', '$2b$10$MsLx.lZVQ/4B0dmm2WpAduHK.i1piomS0FTcQNGNPi7eDrsKlll22', 'user',1),
  ('user3', '$2b$10$Pupwh75gL4UsEdDgJa2te.VbAfocPcF7kO/PRE37COrLmLBQ/560q', 'user',1),
  ('user4', '$2b$10$h6pbw3j.ppXdXeP6UMiBsuMzWCnhy6PVrNOY/W0tyAJNzX7IEASxK', 'user',1),
