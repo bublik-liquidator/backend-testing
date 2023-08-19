@@ -7,6 +7,14 @@ const format = require("pg-format");
 
 require("dotenv").config();
 app.use(cors({ origin: process.env.ALLOWED_ORIGIN }));
+app.use((err, req, res, next) => {
+  if (err instanceof pg.Error) {
+    console.error(err.message);
+    res.status(500).json({ error: 'Ошибка базы данных' });
+  } else {
+    next(err);
+  }
+});
 const { Pool } = require("pg");
 const pool = new Pool({
   host: process.env.POSTGRESQL_HOST,
