@@ -36,7 +36,6 @@ app.get("/ping", (req, res) => {
 app.post("/login", async (req, res) => {
   try {
     const { name, password } = req.body;
-    console.log("namenamenamename "+name)
     const result = await pool.query(`SELECT * FROM users WHERE name=$1`, [
       name,
     ]);
@@ -50,7 +49,7 @@ app.post("/login", async (req, res) => {
         const token = jwt.sign({ user_id: user.id, isAdmin }, secret, {
           expiresIn: EXPIRES_IN,
         });
-        console.log("TOCENNN"+token)
+        // console.log("TOCENNN"+token)
         res.json({ token });
       } else {
         // Пароли не совпадают, отправляем ошибку
@@ -71,7 +70,7 @@ const authenticate = async (req, res, next) => {
     //// console.log('Request headers:', req.headers);  Отслеживаем заголовки запроса
     const authHeader = req.headers['authorization'];
     const token = authHeader.split(' ')[1];
-        console.log("tokentokentokentokentokentokentoken     "+token)
+        // console.log("tokentokentokentokentokentokentoken     "+token)
     const decoded = jwt.verify(token, secret);
     req.user_id = decoded.user_id;
 
@@ -287,10 +286,10 @@ const authHeader = req.headers['authorization'];
 
 app.post("/change-password", async (req, res) => {
   try {
-    const { name, newPassword, group_id } = req.body;
+    const { name, newPassword, groups_name } = req.body;
     // Check if the current user is an administrator
     console.log(name + newPassword + " DDDDDDD ");
-const authHeader = req.headers['authorization'];
+    const authHeader = req.headers['authorization'];
     const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
@@ -302,6 +301,14 @@ const authHeader = req.headers['authorization'];
         // User exists, update their password and group_id
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(newPassword, saltRounds);
+
+        // Retrieve the id of the group with the specified groups_name
+        const groupResult = await pool.query(
+          `SELECT id FROM groups WHERE name = $1`,
+          [groups_name]
+        );
+        const group_id = groupResult.rows[0].id;
+
         await pool.query(
           `UPDATE users SET password = $1, group_id = $2 WHERE name = $3`,
           [hashedPassword, group_id, name]
@@ -354,8 +361,9 @@ const authHeader = req.headers['authorization'];
 app.post("/get-questions", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-    const { token } = req.body;
-    const decodedToken = jwt.verify(token, secret);
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // Текущий пользователь является администратором, получаем список вопросов из таблицы questions
       const result = await pool.query(
@@ -375,7 +383,7 @@ app.post("/get-questions", async (req, res) => {
 app.post("/update-question", async (req, res) => {
   try {
     // Проверяем, является ли текущий пользователь администратором
-const authHeader = req.headers['authorization'];
+    const authHeader = req.headers['authorization'];
     const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
@@ -416,8 +424,9 @@ const authHeader = req.headers['authorization'];
 
 app.post("/add-user", async (req, res) => {
   try {
-    const { token } = req.body;
-    const decodedToken = jwt.verify(token, secret);
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+        const decodedToken = jwt.verify(token, secret);
     if (decodedToken.isAdmin) {
       // The user is an administrator, proceed with adding the new user
 
@@ -502,6 +511,30 @@ const authHeader = req.headers['authorization'];
     res.status(401).json("Error");
   }
 });
+
+app.post("/users_group_id", authenticate, async (req, res) => {
+  try {
+    // Проверяем, является ли текущий пользователь администратором
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      const groupResult = await pool.query(
+        `SELECT name FROM groups`
+      );
+      console.log(groupResult.rows)
+      res.json(groupResult.rows);
+    } else {
+      res.status(403).json("Forbidden");
+      console.error(err.message);
+
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 app.listen(3000, () => {
   console.log(
