@@ -49,7 +49,6 @@ app.post("/login", async (req, res) => {
         const token = jwt.sign({ user_id: user.id, isAdmin }, secret, {
           expiresIn: EXPIRES_IN,
         });
-        // console.log("TOCENNN"+token)
         res.json({ token });
       } else {
         // Пароли не совпадают, отправляем ошибку
@@ -288,7 +287,6 @@ app.post("/change-password", async (req, res) => {
   try {
     const { name, newPassword, groups_name } = req.body;
     // Check if the current user is an administrator
-    console.log(name + newPassword + " DDDDDDD ");
     const authHeader = req.headers['authorization'];
     const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
@@ -522,7 +520,6 @@ app.post("/users_group_id", authenticate, async (req, res) => {
       const groupResult = await pool.query(
         `SELECT name FROM groups`
       );
-      console.log(groupResult.rows)
       res.json(groupResult.rows);
     } else {
       res.status(403).json("Forbidden");
