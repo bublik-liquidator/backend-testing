@@ -88,4 +88,4 @@ VALUES
 					
 
 INSERT INTO "users" ("id", "name", "password", "group_id", "role") VALUES
-(1, 'admin', '$2a$10$tRou5xU510iRyIScXWNXfuOZdD4Pq9oQQxQBi6RfYTmwpPC9Xi5yC', 2, 'admin'),
+(1, 'admin', '$2a$10$tRou5xU510iRyIScXWNXfuOZdD4Pq9oQQxQBi6RfYTmwpPC9Xi5yC', 2, 'admin');
