@@ -531,7 +531,85 @@ app.post("/users_group_id", authenticate, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+function generatePassword(length) {
+  var charset = "abcdefghjkmnopqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ234567890"; // Исключены символы '1', 'i', 'I', 'l', 'L'
+  var password = "";
+  for (var i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+  }
+  return password;
+}
 
+function generateUsers(numUsers, group_id1, group_id2) {
+  var data = [];
+  for (var i = 1; i <= numUsers; i++) {
+      var user = {
+          id: i,
+          login: 'user' + i,
+          password: generatePassword(6),
+          group_id: (i <= numUsers/2) ? group_id1 : group_id2, 
+          role: 'user' 
+        };
+      data.push(user);
+  }
+  return data;
+}
+
+app.post("/populate-users",authenticate, async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, secret);
+
+    if (decodedToken.isAdmin) {
+      const numUsers = req.body.numUsers; // Получаем количество пользователей из тела запроса
+      const group_id1 = req.body.group_id1; // Получаем group_id1 из тела запроса
+      const group_id2 = req.body.group_id2; // Получаем group_id2 из тела запроса
+      const usersData = generateUsers(numUsers, group_id1, group_id2); // Генерируем данные пользователей
+      const loginPasswordData = [];
+      for (let user of usersData) {
+         var saltRounds = 10;
+         var hashedPassword = bcrypt.hashSync(user.password, saltRounds);
+
+        await pool.query(`INSERT INTO users (name, password, group_id, role) VALUES ($1, $2, $3, $4)`, [user.login, hashedPassword, user.group_id, user.role]);
+        
+        // Получаем имя группы по ID группы
+        const groupResult = await pool.query(`SELECT name FROM groups WHERE id = $1`, [user.group_id]);
+        const groupName = groupResult.rows[0].name;
+
+        loginPasswordData.push({name: user.login, password: user.password, group_name: groupName});
+      
+      }
+      res.json(loginPasswordData);
+
+    } else {
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(401).json("Error");
+  }
+});
+
+
+
+app.post("/clear-tables", async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, secret);
+    if (decodedToken.isAdmin) {
+      await pool.query(`DELETE FROM answers`);
+      await pool.query(`DELETE FROM users WHERE role != 'admin'`);
+      res.json("Таблицы успешно очищены");
+    } else {
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(401).json("Error");
+  }
+});
 
 app.listen(3000, () => {
   console.log(
