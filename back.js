@@ -611,6 +611,45 @@ app.post("/clear-tables", async (req, res) => {
   }
 });
 
+app.get("/get-questions", authenticate, async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, secret);
+
+    if (decodedToken.isAdmin) {
+      const result = await pool.query(`SELECT * FROM questions`);
+      const questionsData = result.rows;
+      res.json(questionsData);
+    } else {
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(401).json("Error");
+  }
+});
+
+app.get("/get-questions-massiv", authenticate, async (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader.split(' ')[1];
+    const decodedToken = jwt.verify(token, secret);
+
+    if (decodedToken.isAdmin) {
+      const result = await pool.query(`SELECT question FROM questions`);
+      const questionsData = result.rows.map(row => row.question);
+      res.json(questionsData);
+    } else {
+      res.status(403).json("Forbidden");
+    }
+  } catch (err) {
+    console.error(err.message);
+    res.status(401).json("Error");
+  }
+});
+
+
 app.listen(3000, () => {
   console.log(
     "Server started on POSTGRESQL_PORT  " + process.env.POSTGRESQL_PORT
