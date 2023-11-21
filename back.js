@@ -531,6 +531,7 @@ app.post("/users_group_id", authenticate, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 function generatePassword(length) {
   var charset = "abcdefghjkmnopqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ234567890"; // Исключены символы '1', 'i', 'I', 'l', 'L'
   var password = "";
@@ -555,31 +556,35 @@ function generateUsers(numUsers, group_id1, group_id2) {
   return data;
 }
 
-app.post("/populate-users",authenticate, async (req, res) => {
+app.post("/populate-users", authenticate, async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader.split(' ')[1];
     const decodedToken = jwt.verify(token, secret);
 
     if (decodedToken.isAdmin) {
-      const numUsers = req.body.numUsers; // Получаем количество пользователей из тела запроса
-      const group_id1 = req.body.group_id1; // Получаем group_id1 из тела запроса
-      const group_id2 = req.body.group_id2; // Получаем group_id2 из тела запроса
-      const usersData = generateUsers(numUsers, group_id1, group_id2); // Генерируем данные пользователей
+      const numUsers = req.body.numUsers;
+      const group_id1 = req.body.group_id1;
+      const group_id2 = req.body.group_id2;
+      const usersData = generateUsers(numUsers, group_id1, group_id2);
       const loginPasswordData = [];
-      for (let user of usersData) {
-         var saltRounds = 10;
-         var hashedPassword = bcrypt.hashSync(user.password, saltRounds);
+      const insertData = [];
 
-        await pool.query(`INSERT INTO users (name, password, group_id, role) VALUES ($1, $2, $3, $4)`, [user.login, hashedPassword, user.group_id, user.role]);
-        
+      for (let user of usersData) {
+        var saltRounds = 10;
+        var hashedPassword = bcrypt.hashSync(user.password, saltRounds);
+
         // Получаем имя группы по ID группы
         const groupResult = await pool.query(`SELECT name FROM groups WHERE id = $1`, [user.group_id]);
         const groupName = groupResult.rows[0].name;
 
         loginPasswordData.push({name: user.login, password: user.password, group_name: groupName});
-      
+        insertData.push(`('${user.login}', '${hashedPassword}', ${user.group_id}, '${user.role}')`);
       }
+
+      // Пакетная вставка
+      await pool.query(`INSERT INTO users (name, password, group_id, role) VALUES ${insertData.join(", ")}`);
+
       res.json(loginPasswordData);
 
     } else {
@@ -590,6 +595,7 @@ app.post("/populate-users",authenticate, async (req, res) => {
     res.status(401).json("Error");
   }
 });
+
 
 
 
