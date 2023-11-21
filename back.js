@@ -542,7 +542,7 @@ function generatePassword(length) {
 
 function generateUsers(numUsers, group_id1, group_id2) {
   var data = [];
-  for (var i = 1; i <= numUsers; i++) {
+  for (var i = 2; i <= numUsers; i++) {
       var user = {
           id: i,
           login: 'user' + i,
@@ -601,6 +601,7 @@ app.post("/clear-tables", async (req, res) => {
     if (decodedToken.isAdmin) {
       await pool.query(`DELETE FROM answers`);
       await pool.query(`DELETE FROM users WHERE role != 'admin'`);
+      await pool.query(`ALTER SEQUENCE users_id_seq RESTART WITH 2`); // Сбросить счетчик ID
       res.json("Таблицы успешно очищены");
     } else {
       res.status(403).json("Forbidden");
@@ -610,6 +611,7 @@ app.post("/clear-tables", async (req, res) => {
     res.status(401).json("Error");
   }
 });
+
 
 app.get("/get-questions", authenticate, async (req, res) => {
   try {
