@@ -548,7 +548,7 @@ function generateUsers(numUsers, group_id1, group_id2) {
           id: i,
           login: 'user' + i,
           password: generatePassword(6),
-          group_id: (i <= numUsers/2) ? group_id1 : group_id2, 
+          group_id: ((i-1) <= numUsers/2) ? group_id1 : group_id2, 
           role: 'user' 
         };
       data.push(user);
