@@ -30,7 +30,7 @@ const jwt = require("jsonwebtoken");
 app.use(express.json());
 
 app.get("/ping", (req, res) => {
-  res.json("Server is up and running! KEK)22");
+  res.json("Server is up and running! KEK)23");
 });
 
 app.post("/login", async (req, res) => {
