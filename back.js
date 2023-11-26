@@ -573,7 +573,7 @@ app.post("/populate-users", authenticate, async (req, res) => {
       for (let user of usersData) {
         var saltRounds = 10;
         var hashedPassword = bcrypt.hashSync(user.password, saltRounds);
-
+ 
         // Получаем имя группы по ID группы
         const groupResult = await pool.query(`SELECT name FROM groups WHERE id = $1`, [user.group_id]);
         const groupName = groupResult.rows[0].name;
